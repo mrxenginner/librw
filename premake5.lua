@@ -38,6 +38,11 @@ newoption {
 	default     = "../SDL3-3.2.22",
 }
 
+newoption {
+	trigger     = "freesce",
+	description = "ps2: build against freesce with its own ee-gcc 2.9, instead of the SCE SDK"
+}
+
 workspace "librw"
 	location "build"
 	language "C++"
@@ -63,8 +68,8 @@ workspace "librw"
 	filter "configurations:Release*"
 		defines { "NDEBUG" }
 		optimize "On"
-	filter "configurations:ReleaseStatic"
-		staticruntime("On")
+--	filter "configurations:ReleaseStatic"
+--		staticruntime("On")
 
 	filter { "platforms:*null" }
 		defines { "RW_NULL" }
@@ -82,10 +87,33 @@ workspace "librw"
 	filter { "platforms:ps2" }
 		defines { "RW_PS2" }
 		toolset "gcc"
-		gccprefix 'ee-'
-		buildoptions { "-nostdlib", "-fno-common" }
-		includedirs { "$(PS2SDK)/ee/include", "$(PS2SDK)/common/include" }
 		optimize "Off"
+		if _OPTIONS["freesce"] then
+			-- freesce, by the xtc convention: two roots, two axes.
+			-- FREESCE is the SDK vintage -- a tree root with
+			-- ee/include and ee/lib under it, which is how an
+			-- install and a git worktree are both laid out -- and
+			-- FREESCE_GCC is the compiler root (an env var read by
+			-- the tools/freesce wrappers), which is not
+			-- SDK-versioned and so does not derive from it. Both
+			-- default to /usr/local/freesce. A premake-time choice
+			-- because the 2.9 and 3.2 C++ ABIs don't link: one
+			-- flavor per generated tree. The wrappers also strip
+			-- premake's gcc-3-style dependency flags, which the
+			-- 2.9 driver rejects.
+			gccprefix '../tools/freesce/ee-'
+			buildoptions { "-fno-common", "-fno-exceptions", "-mno-abicalls", "-G0" }
+			makesettings [[
+FREESCE ?= /usr/local/freesce
+FREESCE_GCC ?= /usr/local/freesce/ee/gcc
+export FREESCE_GCC
+]]
+			includedirs { "$(FREESCE)/ee/include" }
+		else
+			gccprefix 'ee-'
+			buildoptions { "-nostdlib", "-fno-common" }
+			includedirs { "$(PS2SDK)/ee/include", "$(PS2SDK)/common/include" }
+		end
 
 	filter { "platforms:*amd64*" }
 		architecture "x86_64"
@@ -119,6 +147,20 @@ workspace "librw"
 	Libdir = "lib/%{cfg.platform}/%{cfg.buildcfg}"
 	Bindir = "bin/%{cfg.platform}/%{cfg.buildcfg}"
 
+function vucode()
+	-- with --freesce, its own dvp-as by its root, not from PATH
+	local dvpas = _OPTIONS["freesce"]
+		and '$(or $(FREESCE_GCC),/usr/local/freesce/ee/gcc)/bin/ee-dvp-as'
+		or 'ee-dvp-as'
+	filter "files:**.dsm"
+		buildmessage 'dvp-as %{file.name}'
+		buildcommands {
+			'cpp -x assembler-with-cpp "%{file.abspath}" | ' .. dvpas .. ' -I "%{file.directory}" -o "%{cfg.objdir}/%{file.basename}.o"'
+		}
+		buildoutputs { '%{cfg.objdir}/%{file.basename}.o' }
+	filter {}
+end
+
 project "librw"
 	kind "StaticLib"
 	targetname "rw"
@@ -128,6 +170,10 @@ project "librw"
 	files { "src/*/*.*" }
 	filter { "platforms:*gl3" }
 		files { "src/gl/glad/*.*" }
+        vucode()
+        filter { "platforms:ps2" }
+                files { "src/ps2/vu1/*.dsm" }
+
 
 project "dumprwtree"
 	kind "ConsoleApp"
@@ -194,15 +240,6 @@ function skeltool(dir)
 	findlibs()
 end
 
-function vucode()
-	filter "files:**.dsm"
-		buildcommands {
-			'cpp "%{file.relpath}" | dvp-as -o "%{cfg.objdir}/%{file.basename}.o"'
-		}
-		buildoutputs { '%{cfg.objdir}/%{file.basename}.o' }
-	filter {}
-end
-
 project "playground"
 	kind "WindowedApp"
 	characterset ("MBCS")
@@ -259,6 +296,22 @@ project "im3d"
 	removeplatforms { "*null" }
 	removeplatforms { "ps2" }
 
+project "demoreel"
+	kind "WindowedApp"
+	characterset ("MBCS")
+	skeltool("demoreel")
+	entrypoint("WinMainCRTStartup")
+	removeplatforms { "*null" }
+	removeplatforms { "ps2" } -- for now
+
+project "clumpview"
+	kind "WindowedApp"
+	characterset ("MBCS")
+	skeltool("clumpview")
+	entrypoint("WinMainCRTStartup")
+	removeplatforms { "*null" }
+	removeplatforms { "ps2" } -- has its own Makefile
+
 project "ska2anm"
 	kind "ConsoleApp"
 	characterset ("MBCS")
@@ -272,18 +325,18 @@ project "ska2anm"
 	findlibs()
 	removeplatforms { "*gl3", "*d3d9", "*ps2" }
 
-project "ps2test"
-	kind "ConsoleApp"
-	targetdir (Bindir)
-	vucode()
-	removeplatforms { "*gl3", "*d3d9", "*null" }
-	targetextension '.elf'
-	includedirs { "." }
-	files { "tools/ps2test/*.cpp",
-	        "tools/ps2test/vu/*.dsm",
-	        "tools/ps2test/*.h" }
-	libdirs { "$(PS2SDK)/ee/lib" }
-	links { "librw" }
+--project "ps2test"
+--	kind "ConsoleApp"
+--	targetdir (Bindir)
+--	vucode()
+--	removeplatforms { "*gl3", "*d3d9", "*null" }
+--	targetextension '.elf'
+--	includedirs { "." }
+--	files { "tools/ps2test/*.cpp",
+--	        "tools/ps2test/vu/*.dsm",
+--	        "tools/ps2test/*.h" }
+--	libdirs { "$(PS2SDK)/ee/lib" }
+--	links { "librw" }
 
 --project "ps2rastertest"
 --	kind "ConsoleApp"

@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <rw.h>
 #include "skeleton.h"
 
@@ -6,6 +8,21 @@ namespace sk {
 
 Globals globals;
 Args args;
+
+bool32 keys[KEY_NUMKEYS];
+MouseState mouse;
+MouseState prevmouse;
+PadState pad;
+
+// the ps2 needs to mangle paths, see ps2.cpp
+#ifndef RW_PS2
+char*
+GetFilePath(char *dst, const char *path)
+{
+	strcpy(dst, path);
+	return dst;
+}
+#endif
 
 
 bool
@@ -64,11 +81,11 @@ TerminateRW(void)
 	rw::Engine::term();
 }
 
-Camera*
+rw::Camera*
 CameraCreate(int32 width, int32 height, bool32 z)
 {
-	Camera *cam;
-	cam = Camera::create();
+	rw::Camera *cam;
+	cam = rw::Camera::create();
 	cam->setFrame(Frame::create());
 	cam->frameBuffer = Raster::create(width, height, 0, Raster::CAMERA);
 	cam->zBuffer = Raster::create(width, height, 0, Raster::ZBUFFER);
@@ -95,7 +112,7 @@ CameraDestroy(rw::Camera *cam)
 }
 
 void
-CameraSize(Camera *cam, Rect *r, float viewWindow, float aspectRatio)
+CameraSize(rw::Camera *cam, Rect *r, float viewWindow, float aspectRatio)
 {
 	if(cam->frameBuffer){
 		cam->frameBuffer->destroy();
@@ -123,7 +140,7 @@ CameraSize(Camera *cam, Rect *r, float viewWindow, float aspectRatio)
 }
 
 void
-CameraMove(Camera *cam, V3d *delta)
+CameraMove(rw::Camera *cam, V3d *delta)
 {
 	rw::V3d offset;
 	rw::V3d::transformVectors(&offset, delta, 1, &cam->getFrame()->matrix);
@@ -131,7 +148,7 @@ CameraMove(Camera *cam, V3d *delta)
 }
 
 void
-CameraPan(Camera *cam, V3d *pos, float angle)
+CameraPan(rw::Camera *cam, V3d *pos, float angle)
 {
 	rw::Frame *frame = cam->getFrame();
 	rw::V3d trans = pos ? *pos : frame->matrix.pos;
@@ -142,7 +159,7 @@ CameraPan(Camera *cam, V3d *pos, float angle)
 }
 
 void
-CameraTilt(Camera *cam, V3d *pos, float angle)
+CameraTilt(rw::Camera *cam, V3d *pos, float angle)
 {
 	rw::Frame *frame = cam->getFrame();
 	rw::V3d trans = pos ? *pos : frame->matrix.pos;
@@ -153,7 +170,7 @@ CameraTilt(Camera *cam, V3d *pos, float angle)
 }
 
 void
-CameraRotate(Camera *cam, V3d *pos, float angle)
+CameraRotate(rw::Camera *cam, V3d *pos, float angle)
 {
 	rw::Frame *frame = cam->getFrame();
 	rw::V3d trans = pos ? *pos : frame->matrix.pos;
@@ -167,11 +184,55 @@ EventStatus
 EventHandler(Event e, void *param)
 {
 	EventStatus s;
+	int key;
+	MouseState *ms;
+
+#ifndef RW_PS2
 	if (e == INITIALIZE) {
 		ImGui::CreateContext();
 	}
+#endif
+
+	// keep input state so apps don't all have to do it themselves.
+	// the backends only fill the field an event actually carries.
+	switch(e){
+	case INITIALIZE:
+		CameraControlsInit();
+		break;
+	case KEYDOWN:
+		key = *(int*)param;
+		if(key >= 0 && key < KEY_NUMKEYS)
+			keys[key] = 1;
+		break;
+	case KEYUP:
+		key = *(int*)param;
+		if(key >= 0 && key < KEY_NUMKEYS)
+			keys[key] = 0;
+		break;
+	case MOUSEMOVE:
+		ms = (MouseState*)param;
+		mouse.posx = ms->posx;
+		mouse.posy = ms->posy;
+		break;
+	case MOUSEBTN:
+		ms = (MouseState*)param;
+		mouse.buttons = ms->buttons;
+		break;
+	case MOUSEWHEEL:
+		ms = (MouseState*)param;
+		mouse.wheelDelta += ms->wheelDelta;
+		break;
+	default:
+		break;
+	}
 
 	s = AppEventHandler(e, param);
+
+	if(e == IDLE){
+		// latch after the app has seen this frame's deltas
+		prevmouse = mouse;
+		mouse.wheelDelta = 0.0f;
+	}
 	if(e == QUIT){
 		globals.quit = 1;
 		return EVENTPROCESSED;

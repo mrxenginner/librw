@@ -1,0 +1,3 @@
+#!/bin/sh
+# premake's gccprefix applies to ar too; just forward
+exec "${FREESCE_GCC:-/usr/local/freesce/ee/gcc}/bin/ee-ar" "$@"

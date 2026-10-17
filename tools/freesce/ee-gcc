@@ -1,0 +1,13 @@
+#!/bin/sh
+# see ee-g++ in this directory
+skip=
+for a in "$@"; do
+	shift
+	if [ -n "$skip" ]; then skip=; continue; fi
+	case "$a" in
+	-MD|-MP) continue ;;
+	-MF) skip=1; continue ;;
+	esac
+	set -- "$@" "$a"
+done
+exec "${FREESCE_GCC:-/usr/local/freesce/ee/gcc}/bin/ee-gcc" "$@"

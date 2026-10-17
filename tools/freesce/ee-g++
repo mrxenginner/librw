@@ -1,0 +1,18 @@
+#!/bin/sh
+# ee-gcc 2.9 wrapper for the premake gmake build (--freesce): the
+# generated rules pass gcc-3-style dependency flags; the 2.9 driver
+# treats -MF's argument as a second input file and dies. Strip -MD,
+# -MP and -MF <file>, then run the real driver.
+# FREESCE_GCC is the compiler root (the xtc convention): the compiler
+# is not SDK-versioned, so it does not derive from FREESCE.
+skip=
+for a in "$@"; do
+	shift
+	if [ -n "$skip" ]; then skip=; continue; fi
+	case "$a" in
+	-MD|-MP) continue ;;
+	-MF) skip=1; continue ;;
+	esac
+	set -- "$@" "$a"
+done
+exec "${FREESCE_GCC:-/usr/local/freesce/ee/gcc}/bin/ee-g++" "$@"
