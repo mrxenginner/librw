@@ -133,8 +133,7 @@ im2DRenderPrimitive(PrimitiveType primType, void *vertices, int32 numVertices)
 #endif
 
 	glBindBuffer(GL_ARRAY_BUFFER, im2DVbo);
-	glBufferData(GL_ARRAY_BUFFER, STARTVERTICES*sizeof(Im2DVertex), nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, numVertices*sizeof(Im2DVertex), vertices);
+	glBufferData(GL_ARRAY_BUFFER, numVertices*sizeof(Im2DVertex), vertices, GL_STREAM_DRAW);
 
 	if(im2dOverrideShader)
 		im2dOverrideShader->use();
@@ -163,12 +162,10 @@ im2DRenderIndexedPrimitive(PrimitiveType primType,
 #endif
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, im2DIbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, STARTINDICES*2, nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, numIndices*2, indices);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices*2, indices, GL_STREAM_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, im2DVbo);
-	glBufferData(GL_ARRAY_BUFFER, STARTVERTICES*sizeof(Im2DVertex), nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, numVertices*sizeof(Im2DVertex), vertices);
+	glBufferData(GL_ARRAY_BUFFER, numVertices*sizeof(Im2DVertex), vertices, GL_STREAM_DRAW);
 
 	if(im2dOverrideShader)
 		im2dOverrideShader->use();
@@ -274,8 +271,7 @@ im3DTransform(void *vertices, int32 numVertices, Matrix *world, uint32 flags)
 #endif
 
 	glBindBuffer(GL_ARRAY_BUFFER, im3DVbo);
-	glBufferData(GL_ARRAY_BUFFER, STARTVERTICES*sizeof(Im3DVertex), nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, numVertices*sizeof(Im3DVertex), vertices);
+	glBufferData(GL_ARRAY_BUFFER, numVertices*sizeof(Im3DVertex), vertices, GL_STREAM_DRAW);
 #ifndef RW_GL_USE_VAOS
 	setAttribPointers(im3dattribDesc, 4);
 #endif
@@ -295,8 +291,7 @@ void
 im3DRenderIndexedPrimitive(PrimitiveType primType, void *indices, int32 numIndices)
 {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, im3DIbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, STARTINDICES*2, nil, GL_STREAM_DRAW);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, numIndices*2, indices);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices*2, indices, GL_STREAM_DRAW);
 
 	flushCache();
 	glDrawElements(primTypeMap[primType], numIndices,
